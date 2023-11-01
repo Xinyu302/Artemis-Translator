@@ -1,6 +1,6 @@
 
-with open("test.ir", "r") as f:
-    lines = f.readlines()
+with open("tmp.ir", "r") as f:
+    lines = f.read().replace("#", "_").split("\n")
 
 symbol_table = {}
 
@@ -8,7 +8,8 @@ parse_stencil_lines = False
 apply_kernels = []
 
 store_result_list = []
-input_args = None
+global_input_args = None
+output_args = None
 
 mid_vars = []
 para2input = {}
@@ -31,7 +32,10 @@ for line in lines:
     elif line.startswith("stencil"):
         start_index = line.find("(")
         end_index = line.find(")") 
-        mid_vars.append(line[start_index + 1: end_index].split(", ")[0])
+        # mid_vars_list = line[start_index + 1: end_index].split(", ")
+        # mid_vars_list = [var for var in mid_vars_list if var in output_args]
+        # mid_vars.extend(mid_vars_list)
+        # mid_vars.append(line[start_index + 1: end_index].split(", ")[0])
         stencil_lines = [line]
         parse_stencil_lines = True
     elif line.startswith("store"):
@@ -41,24 +45,27 @@ for line in lines:
     elif line.startswith("@"):
         start_index = line.find("(")
         end_index = line.find(")")
-        input_args = line[start_index + 1: end_index].split(", ")
+        global_input_args = line[start_index + 1: end_index].split(", ")
 
 assert store_result_list
-assert input_args is not None
+assert global_input_args is not None
 
-config = []
+output_args = store_result_list
+mid_vars = output_args
 
-arg_list = ", ".join(input_args + mid_vars)
-config.append(", ".join(input_args))
-config.append(", ".join(mid_vars))
+global_config = []
+
+arg_list = ", ".join(global_input_args + mid_vars)
+global_config.append(", ".join(global_input_args))
+global_config.append(", ".join(mid_vars))
 
 header = """
 parameter L,M,N;
 iterator k, j, i;
 """
 
-declare_statement = "double " + ", ".join(list(map(lambda x: x + "[L,M,N]", (input_args + mid_vars))))  + ";"
-copy_statement = "copyin " + ", ".join(input_args) + ";"
+declare_statement = "double " + ", ".join(list(map(lambda x: x + "[L,M,N]", (global_input_args + mid_vars))))  + ";"
+copy_statement = "copyin " + ", ".join(global_input_args) + ";"
 
 # print(header)
 # print(declare_statement)
@@ -71,7 +78,8 @@ apply_first_line_list = []
 
 def gen_declare(arg_list):
     declare_line = "double " + ", ".join([f"{arg}[L,M,N]" for arg in arg_list]) + ";"
-    copy_line = "copyin " + ", ".join(arg_list[1:]) + ";"
+    copy_arg_list = [arg for arg in arg_list if arg in global_input_args]
+    copy_line = "copyin " + ", ".join(copy_arg_list) + ";"
     return [declare_line, copy_line]
 
 # here to print all apply kernels
@@ -106,7 +114,14 @@ for apply_kernel in apply_kernels:
         to_print.append(line)
     call_statement = first_line[len("stencil "):-1]
     call_statement = call_statement + ";"
-    copy_out_statement = "copyout " + ", ".join([new_para_list[0]]) + ";"
+    copy_out_list = []
+    for para in new_para_list:
+        if para not in global_input_args:
+            copy_out_list.append(para)
+        else:
+            break
+    
+    copy_out_statement = "copyout " + ", ".join(copy_out_list) + ";"
     to_print.append(call_statement)
     to_print.append(copy_out_statement)
     with open(f"{new_para_list[0]}.idsl", "w") as f:
@@ -115,12 +130,12 @@ for apply_kernel in apply_kernels:
 for apply_kernel in apply_first_line_list:
     call_statement = apply_kernel[len("stencil "):-1]
     call_statement = call_statement + ";"
-    config.append(call_statement)
+    global_config.append(call_statement)
     print(call_statement)
     
 copy_out_statement = "copyout " + ", ".join(store_result_list) + ";"
-config.append(copy_out_statement)
+global_config.append(copy_out_statement)
 print(copy_out_statement)
 
 with open("config.txt", "w") as f:
-    f.write("\n".join(config))
+    f.write("\n".join(global_config))
