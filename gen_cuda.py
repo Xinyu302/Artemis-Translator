@@ -1,10 +1,16 @@
 import os
 import re
+import sys
 
 
 dsl_list = [file for file in os.listdir() if file.endswith(".idsl")]
 
 L = M = N = 320
+
+# If you want to change the size of the input, please run the script like this:
+# python3 gen_cuda.py 320
+if len(sys.argv) > 1:
+    L = M = N = int(sys.argv[1])
 
 def copy_to_device(arg):
     template = f'''
@@ -128,7 +134,7 @@ def gen_cuda_main(config_name="config.txt"):
 def compile_dsl(dsl_name):
     kernel_name = dsl_name[:-5]
     block_config = {}
-    os.system(f"./stencilgen {dsl_name} --ndim L=320,M=320,N=320")
+    os.system(f"stencilgen {dsl_name} --ndim L=320,M=320,N=320")
     with open("out.cu", "r") as f:
         content = f.read()
     content = content.replace("void check_error", "inline void check_error")
@@ -156,15 +162,7 @@ def compile_dsl(dsl_name):
     return grid_dim, block_config
     # os.system(f"mv out.cu {kernel_name}.cu")
 
-def compile_all_cuda_files():
-    for dsl in dsl_list:
-        kernel_name = dsl[:-5]
-        os.system(f'nvcc -O3 -ccbin=g++ -std=c++11 -Xcompiler "-fPIC -fopenmp -O3 -fno-strict-aliasing" --use_fast_math -Xptxas "-dlcm=ca" -c {kernel_name}.cu -o {kernel_name}.o')
-    os.system(f'nvcc -O3 -ccbin=g++ -std=c++11 -Xcompiler "-fPIC -fopenmp -O3 -fno-strict-aliasing" --use_fast_math -Xptxas "-dlcm=ca" -c main.cu -o main.o')
 
-    # compile main.cu with all .o files
-    # os.system(f'nvcc -ccbin=g++ -std=c++11 -Xcompiler "-fPIC -fopenmp -O3 -fno-strict-aliasing" --use_fast_math -Xptxas "-dlcm=ca" -c main.cu -o main.o')
-    os.system(f'nvcc -ccbin=g++ -std=c++11 -Xcompiler "-fPIC -fopenmp -fno-strict-aliasing" --use_fast_math -Xptxas "-dlcm=ca" main.cpp *.o -o main')
 
 
 kernel2grid = {}
@@ -177,5 +175,4 @@ for dsl in dsl_list:
     kernel2blockconfig[dsl[:-5]] = block_config
     
 gen_cuda_main()
-compile_all_cuda_files()
 # gen_main()

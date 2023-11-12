@@ -1,5 +1,10 @@
+import sys
 
-with open("tmp.ir", "r") as f:
+ir_name = sys.argv[1]
+assert ir_name.endswith(".ir")
+stencil_name = ir_name.replace(".ir", "")
+
+with open(ir_name, "r") as f:
     lines = f.read().replace("#", "_").split("\n")
 
 symbol_table = {}
@@ -124,7 +129,7 @@ for apply_kernel in apply_kernels:
     copy_out_statement = "copyout " + ", ".join(copy_out_list) + ";"
     to_print.append(call_statement)
     to_print.append(copy_out_statement)
-    with open(f"{new_para_list[0]}.idsl", "w") as f:
+    with open(f"{stencil_name}.idsl", "w") as f:
         f.write("\n".join(to_print))
 
 for apply_kernel in apply_first_line_list:
@@ -137,5 +142,5 @@ copy_out_statement = "copyout " + ", ".join(store_result_list) + ";"
 global_config.append(copy_out_statement)
 print(copy_out_statement)
 
-with open("config.txt", "w") as f:
+with open(f"{stencil_name}_config.txt", "w") as f:
     f.write("\n".join(global_config))
