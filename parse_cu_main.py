@@ -137,8 +137,8 @@ def gen_config_file(input_variables, intermediate_variables, kernels, stream_lis
             if kernel_call[0] in kernels:
                 new_arg_list = parse_single_kernel_config(kernel_call[0], kernel_call[1])
                 to_print.append(f"kernel_{kernel_call[0]} ({', '.join(new_arg_list)}) ;")
-    out_var = []
-    to_print.append("copyout " + ", ".join(out_var))
+    out_var = [intermediate_variables[-1]]
+    to_print.append("copyout " + ", ".join(out_var) + ";")
     # print to file "config.txt"
     with open("config.txt", "w") as f:
         f.write("\n".join(to_print))

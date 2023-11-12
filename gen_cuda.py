@@ -155,9 +155,11 @@ def compile_dsl(dsl_name):
                 define_value = match.group(2)
                 block_config[define_name] = define_value
                 # use regex to match "#define bx 16"
-                
+    
     with open(f"{kernel_name}.cu", "w") as f:
         f.write("\n".join(lines[:end_index]))
+    
+    os.system("rm out.cu")
     # os.system(f'nvcc -O3 -ccbin=g++ -std=c++11 -Xcompiler "-fPIC -fopenmp -O3 -fno-strict-aliasing" --use_fast_math -Xptxas "-dlcm=ca" -c {kernel_name}.cu -o {kernel_name}.o')
     return grid_dim, block_config
     # os.system(f"mv out.cu {kernel_name}.cu")
