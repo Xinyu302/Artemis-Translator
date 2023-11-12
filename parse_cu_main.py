@@ -73,6 +73,7 @@ def get_all_kernels(cu_file):
 
 def parse_kernel_call_in_a_stream(stream_call_list):
     call_list = []
+    # This has a bug, the sync is not handled correctly
     for call in stream_call_list:
         if "_mlir_ciface_kernel_" in call:
             kernel_name = re.search(r"_mlir_ciface_kernel_(\w+)", call).group(1)
@@ -132,11 +133,24 @@ def gen_config_file(input_variables, intermediate_variables, kernels, stream_lis
     to_print = []
     to_print.append(", ".join(input_variables))
     to_print.append(", ".join(intermediate_variables))
-    for kernel_call_list in stream_list:
-        for kernel_call in kernel_call_list:
-            if kernel_call[0] in kernels:
-                new_arg_list = parse_single_kernel_config(kernel_call[0], kernel_call[1])
-                to_print.append(f"kernel_{kernel_call[0]} ({', '.join(new_arg_list)}) ;")
+    # This has a bug, not handle sync correctly
+    # for kernel_call_list in stream_list:
+    #     for kernel_call in kernel_call_list:
+    #         if kernel_call[0] in kernels:
+    #             new_arg_list = parse_single_kernel_config(kernel_call[0], kernel_call[1])
+    #             to_print.append(f"kernel_{kernel_call[0]} ({', '.join(new_arg_list)}) ;")
+    # handle sync, all stream_list encounter a sync, then go to next func call
+    while all([len(x) == 0 for x in stream_list]) == False:
+        for kernel_call_list in stream_list:
+            while kernel_call_list:
+                top = kernel_call_list[0]
+                kernel_call_list.pop(0)
+                if top[0].startswith("sync"):
+                    break
+                else:
+                    new_arg_list = parse_single_kernel_config(top[0], top[1])
+                    to_print.append(f"kernel_{top[0]} ({', '.join(new_arg_list)}) ;")
+                    
     out_var = [intermediate_variables[-1]]
     to_print.append("copyout " + ", ".join(out_var) + ";")
     # print to file "config.txt"
